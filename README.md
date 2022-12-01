@@ -1,0 +1,3 @@
+# Advent of Code 2022
+
+Maybe this year I'll get more of it done...
