@@ -7,7 +7,7 @@
 #?(:clj
    (def input (str/split-lines (slurp (io/resource "aoc22/day01.txt"))))
    :cljs
-   (def input (await (p/->> (str/split-lines (slurp "resources/aoc22/day01.txt"))))))
+   (def input (await (p/->> (slurp "resources/aoc22/day01.txt") str/split-lines))))
 
 (defn strlist->intlist [xs]
   #?(:clj
