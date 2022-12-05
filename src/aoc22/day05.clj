@@ -43,25 +43,22 @@
     {:crates (row->col (map parse-crate-line crates))
      :procedure (map parse-procedure-line proc)}))
 
-(defn next-state-9000 [state move]
+(defn next-state [state move multi]
   (let [{:keys [num-crates from-stack to-stack]} move
         from-ndx (- from-stack 1)
         to-ndx (- to-stack 1)
         [crates-taken crates-left] (split-at num-crates (nth state from-ndx))
+        crates-taken (if-not multi (reverse crates-taken) crates-taken)
         crates-dest (nth state to-ndx)]
     (-> (into [] state)
         (assoc from-ndx crates-left)
-        (assoc to-ndx (concat (reverse crates-taken) crates-dest)))))
+        (assoc to-ndx (concat crates-taken crates-dest)))))
+
+(defn next-state-9000 [state move]
+  (next-state state move false))
 
 (defn next-state-9001 [state move]
-  (let [{:keys [num-crates from-stack to-stack]} move
-        from-ndx (- from-stack 1)
-        to-ndx (- to-stack 1)
-        [crates-taken crates-left] (split-at num-crates (nth state from-ndx))
-        crates-dest (nth state to-ndx)]
-    (-> (into [] state)
-        (assoc from-ndx crates-left)
-        (assoc to-ndx (concat (reverse crates-taken) crates-dest)))))
+  (next-state state move true))
 
 (comment
 
@@ -77,14 +74,13 @@
   ;;                 {:num-crates 2, :from-stack 2, :to-stack 1}
   ;;                 {:num-crates 1, :from-stack 1, :to-stack 2})}
 
-
-  (next-state [[:N :Z] [:D :C :M] [:P]] {:num-crates 1 :from-stack 2 :to-stack 1})
+  (next-state [[:N :Z] [:D :C :M] [:P]] {:num-crates 1 :from-stack 2 :to-stack 1} false)
   ;; => [(:D :N :Z) (:C :M) [:P]]
 
   (let [{:keys [crates procedure]} (parse-input sample-input)]
     (loop [c crates
            p procedure]
-      (let [nc (next-state c (first p))]
+      (let [nc (next-state-9000 c (first p))]
         (if-not (nil? (next p)) (recur nc (next p)) nc)))) ; => [(:C) (:M) (:Z :N :D :P)]
 
   :end)
