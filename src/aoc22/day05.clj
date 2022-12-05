@@ -110,5 +110,3 @@
         (map first)
         (map name)
         (str/join ""))))
-
-;; Ugh - using copy and paste for the different crane types is terrible
