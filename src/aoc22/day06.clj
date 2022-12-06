@@ -4,9 +4,7 @@
 (def input (slurp (io/resource "aoc22/day06.txt")))
 
 (defn mchar [input n]
-  (->> (loop [x input res []]
-         (if (< (count x) n) res (recur (drop 1 x) (cons (take n x) res))))
-       reverse
+  (->> (partition n 1 input)
        (take-while #(not (apply distinct? %)))
        count
        (+ n)))
