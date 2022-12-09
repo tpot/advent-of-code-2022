@@ -13,13 +13,17 @@
    (fn [line] (->> line seq (map int) (map #(- % (int \0)))))
    (-> (slurp (io/resource (str "aoc22/" file))) str/split-lines)))
 
+;;; Helpers
+
 (defn matrix-transpose [m]
   (map
    (fn [col] (map #(nth % col) m))
    (range (count (first m)))))
 
 (defn matrix-reverse [m]
-  (map clojure.core/reverse m))
+  (map reverse m))
+
+;; Helpers for part 1
 
 (defn index-visible-row
   "Return indexes of trees visible in a row, from left to right. A
@@ -34,13 +38,31 @@
     {:highest (first xs) :visible [0]} (range (count xs)))))
 
 (defn coords-visible
-  "Coordinates of visible trees"
+  "Return coordinates of visible trees. (Indexes are one-dimensional
+  coordinates."
   [m]
   (apply concat
          (for [row (range (count m))]
            (map (partial vector row) (index-visible-row (nth m row))))))
 
+;; Helpers for part 2
+
+(defn visible
+  "Determine how many trees are visible from a tree of a given height."
+  [height trees]
+  (reduce
+   (fn [result tree]
+     (if (>= tree height) (reduced (inc result)) (inc result)))
+   0 trees))
+
+(defn score [distances]
+  (apply * distances))
+
+;;; Working
+
 (comment
+
+  ;;; Part 1
 
   ;; Visibility from left to right (observer looking east)
   (coords-visible m)
@@ -60,6 +82,50 @@
   (map (fn [[x y]] [(- 4 y) x])
        (coords-visible (matrix-reverse (matrix-transpose m))))
   ;; => ([4 0] [2 0] [4 1] [4 2] [3 2] [4 3] [4 4] [3 4])
+
+  ;;; Part 2
+
+  ;; 3 0 3 7 3
+  ;; 2 5 5 1 2
+  ;; 6 5 3 3 2
+  ;; 3 3 5 4 9
+  ;; 3 5 3 9 0
+
+  ;; Techinque - reuse idea of running the sanme calculation function
+  ;; on reversed, transposed, and reversed and transposed input
+  ;; data. Unfortunately I don't think a lot of actual code is going
+  ;; to be reused which might indicate I did not do the first part the
+  ;; right way.
+
+  ;; Generate lists of trees to the north, south, east and west of the
+  ;; current tree. Count the number of trees until reaching a tree is
+  ;; the same or higher height.
+
+  (reduce
+   max 0
+   (let [m (parse-input "day08-sample.txt")
+         t (matrix-transpose m)
+         r (count m)] ; rank
+     (for [row-ndx (range (count m))
+           col-ndx (range (count (first m)))]
+       (let [row (nth m row-ndx)
+             col (nth t col-ndx)
+             tree (nth row col-ndx)]
+         (let [east  (drop (+ col-ndx 1) row)
+               south (drop (+ row-ndx 1) col)
+               west  (reverse (take col-ndx row))
+               north (reverse (take row-ndx col))]
+           (->> [east south west north]
+                (map (partial visible tree))
+                score))))))
+
+  ;; Stop reducing when we see a tree the same height or taller than
+  ;; the tree under consideration.
+
+  (map (partial visible 5)
+       [[3] [5 2] [1 2] [3 5 3]]) ; => (1 1 2 2)
+
+  (score [1 1 2 2]) ; => 4
 
   :end)
 
@@ -86,4 +152,21 @@
 (defn part-2
   "Run with bb -x aoc22.day08/part-2"
   [_]
-  (prn nil))
+  (prn
+   (reduce
+    max 0
+    (let [m (parse-input "day08.txt")
+          t (matrix-transpose m)
+          r (count m)] ; rank
+      (for [row-ndx (range (count m))
+            col-ndx (range (count (first m)))]
+        (let [row (nth m row-ndx)
+              col (nth t col-ndx)
+              tree (nth row col-ndx)]
+          (let [east  (drop (+ col-ndx 1) row)
+                south (drop (+ row-ndx 1) col)
+                west  (reverse (take col-ndx row))
+                north (reverse (take row-ndx col))]
+            (->> [east south west north]
+                 (map (partial visible tree))
+                 score))))))))
