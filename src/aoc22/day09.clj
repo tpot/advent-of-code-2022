@@ -23,6 +23,11 @@
 
 (defn one? [n] (= n 1))
 
+(defn x [v] (first v))
+(defn y [v] (second v))
+
+(defn clamp [v] (map #(-> % (max -1) (min 1)) v))
+
 (def move-vec
   "Map direction to coordinate vector."
   {:left  [-1 0] :right [1  0]
@@ -35,26 +40,29 @@
 
 (defn next-tail-pos
   "Calculate next tail position."
-  [head-pos tail-pos dir]
-  (let [move-vec (get move-vec dir)
-        next-head-pos (next-head-pos head-pos dir)
-        head-delta (map abs (map - next-head-pos tail-pos))]
+  [head-pos tail-pos]
+  (let [[hx hy] head-pos
+        [tx ty] tail-pos
+        head-delta (map - head-pos tail-pos)]
     (cond
       ;; No movement between head and tail, tail doesn't move
       (= head-delta [0 0])
       tail-pos
       ;; Only moved one step away (incl. diagonal), tail doesn't move
-      (every? true? (map #(or (zero? %) (one? %)) head-delta)) ; ugh
+      (every? (partial not= 2) (map abs head-delta))
       tail-pos
       ;; If moved two steps in a direction, tail catches up
-      (= (map (comp abs (partial * 2)) move-vec) head-delta)
-      (map + tail-pos move-vec)
+      (and (= tx hx) (= (- ty hy) 2))
+      [tx (dec ty)]
+      (and (= tx hx) (= (- ty ty) -2))
+      [tx (inc ty)]
+      (and (= ty hy) (= (- tx hx) 2))
+      [(dec tx) ty]
+      (and (= ty hy) (= (- tx hx) -2))
+      [(inc tx) ty]
       ;; If moved two steps diagonally, tail moves diagonally to catch up
-      :else
-      (let [[tx ty] tail-pos
-            [hx hy] next-head-pos]
-        [(if (> hx tx) (inc tx) (dec tx))
-         (if (> hy ty) (inc ty) (dec ty))])))) ; ugh
+      (or (= (abs (x head-delta)) 2) (= (abs (y head-delta)) 2))
+      (map + (clamp head-delta) tail-pos))))
 
 (defn next-state
   "Calculate the next state given previous state and an operation."
@@ -64,10 +72,13 @@
            count count]
       (let [{:keys [head-pos tail-pos]} state
             next-head-pos (next-head-pos head-pos dir)
-            next-tail-pos (next-tail-pos head-pos tail-pos dir)
+            next-tail-pos (next-tail-pos next-head-pos tail-pos)
             next-state (assoc
                         (merge state {:head-pos next-head-pos :tail-pos next-tail-pos})
-                        :prev-state (conj (:prev-state state) {:head-pos head-pos :tail-pos tail-pos :dir dir}))]
+                        :prev-state (conj
+                                     (:prev-state state)
+                                     {:prev-head-pos head-pos :prev-tail-pos tail-pos
+                                      :head-pos next-head-pos :tail-pos next-tail-pos :dir dir}))]
         (if (= count 1) next-state (recur next-state (dec count)))))))
 
 ;;; Working
@@ -100,47 +111,6 @@
   (println
    (board->str (make-board [0 0] [1 1])))
 
-  ;; Tests
-
-  (def sample-moves
-    [;; Head covering tail
-     {:head-pos [0 0] :tail-pos [0 0] :dir :right
-      :next-head-pos [1 0] :next-tail-pos [0 0]}
-     ;; Two steps away in single direction
-     {:head-pos [1 0] :tail-pos [0 0] :dir :right
-      :next-head-pos [2 0] :next-tail-pos [1 0]}
-     {:head-pos [0 0] :tail-pos [0 1] :dir :down
-      :next-head-pos [0 -1] :next-tail-pos [0 0]}
-     ;; Sample tail single direction moves
-     {:head-pos [0 0] :tail-pos [-1 0] :dir :right
-      :next-head-pos [1 0] :next-tail-pos [0 0]}
-     {:head-pos [0 0] :tail-pos [0 1] :dir :down
-      :next-head-pos [0 -1] :next-tail-pos [0 0]}
-     ;; Sample tail diagonal moves
-     {:head-pos [0 0] :tail-pos [-1 -1] :dir :up
-      :next-head-pos [0 1] :next-tail-pos [0 0]}
-     {:head-pos [0 0] :tail-pos [-1 -1] :dir :right
-      :next-head-pos [1 0] :next-tail-pos [0 0]}])
-
-  (defn test-move [d]
-    (let [dir (:dir d)
-          {:keys [head-pos tail-pos]} d
-          expected-head-pos (:next-head-pos d)
-          expected-tail-pos (:next-tail-pos d)
-          actual-head-pos (next-head-pos head-pos dir)
-          actual-tail-pos (next-tail-pos head-pos tail-pos dir)
-          ok-head (= actual-head-pos expected-head-pos)
-          ok-tail (= actual-tail-pos expected-tail-pos)]
-      (if (and ok-head ok-tail)
-        nil
-        (merge {:dir dir :head-pos head-pos :tail-pos tail-pos}
-               (if-not ok-head {:expected-head-pos expected-head-pos :actual-head-pos actual-head-pos})
-               (if-not ok-tail {:expected-tail-pos expected-tail-pos :actual-tail-pos actual-tail-pos})))))
-
-  (filter coll? (map test-move sample-moves))
-
-  (next-state {:head-pos [0 0] :tail-pos [0 0]} [:right 2])
-
   (let [input (parse-input "day09-sample.txt")]
     (->> input
          (reduce next-state {:head-pos [0 0] :tail-pos [0 0] :prev-state []})
@@ -164,8 +134,6 @@
           (map :tail-pos)
           set
           count))))
-
-;; 6493 too low
 
 (defn part-2
   "Run with bb -x aoc22.day09/part-2"
