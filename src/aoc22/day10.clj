@@ -17,7 +17,9 @@
   [file]
   (map parse-line (-> (slurp (io/resource (str "aoc22/" file))) str/split-lines)))
 
-(defn next-state [state instr]
+(defn next-state
+  "Return next state of machine after executing an instruction."
+  [state instr]
   (let [{:keys [x history-x]} state
         {:keys [opcode arg]} instr]
     (merge state
@@ -27,13 +29,40 @@
                      {:x next-x
                       :history-x (conj history-x x next-x)})))))
 
-(defn calc-strength [xs n]
+(defn calc-strength
+  "Return signal strength."
+  [xs n]
   (* n (nth xs (dec n))))
+
+(defn pixel
+  "Return pixel value for a position and X value."
+  [[pos x]]
+  (if (or (= (+ pos 1) (- x 1))
+          (= (+ pos 1) x)
+          (= (+ pos 1) (+ x 1))) "#" "."))
 
 (comment
 
   (->> (map parse-line ["noop" "addx 3" "addx -5"])
        (reduce next-state {:x 1 :history-x []}))
+
+  ;; Sample
+
+  ;; ##..##..##..##..##..##..##..##..##..##..
+  ;; ###...###...###...###...###...###...###.
+  ;; ####....####....####....####....####....
+  ;; #####.....#####.....#####.....#####.....
+  ;; ######......######......######......####
+  ;; #######.......#######.......#######.....
+
+  ;; Output
+
+  ;; #..##..##..##..##..##..##..##..##..##...
+  ;; ##...###...###...###...###...###...###..
+  ;; ###....####....####....####....####.....
+  ;; ####.....#####.....#####.....#####......
+  ;; #####......######......######......####.
+  ;; ######.......#######.......#######......
 
   :end)
 
@@ -53,4 +82,14 @@
 (defn part-2
   "Run with bb -x aoc22.day10/part-2"
   [_]
-  (prn nil))
+  (let [xs (->> (parse-input "day10.txt")
+                 (reduce next-state {:x 1 :history-x []})
+                 :history-x)]
+    ;; Off-by-one bug cuts off the first column but still readable!
+    (println
+     (str/join
+      "\n"
+      (->> (map #(list (mod %1 40) %2) (range (count xs)) xs)
+           (map pixel)
+           (partition 40)
+           (map str/join))))))
