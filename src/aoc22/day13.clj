@@ -127,6 +127,11 @@
 (defn part-2
   "Run with bb -x aoc22.day13/part-2"
   [_]
-  (prn nil))
+  (prn
+   (let [dividers [[[2]] [[6]]]]
+     (->> (concat (reduce concat (parse-file "day13.txt")) dividers)
+          (sort #(if (in-order? %1 %2) -1 1))
+          (keep-indexed (fn [ndx packet] (if (contains? (set dividers) packet) (inc ndx))))
+          (reduce * 1)))))
 
 (t/run-tests)
