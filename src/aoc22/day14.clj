@@ -119,6 +119,11 @@
   [board p]
   (not= (get-piece board (point-down-right p)) empty-piece))
 
+(defn fell-into-void?
+  "Is a position off the board?"
+  [board [x y]]
+  (> y (second (:y-range board))))
+
 (defn load-board [filename]
   (let [input (set (mapcat draw-line (parse-file filename)))]
     (let [[x1 x2] [(apply min (map first input)) (apply max (map first input))]
@@ -130,6 +135,7 @@
          (set-piece board point "#"))
        {:pieces (into [] (repeat (* x-len y-len) "."))
         :x-offset x1 :y-offset 0
+        :x-range [x1 x2] :y-range [y1 y2]
         :x-len x-len :y-len y-len}
        input))))
 
@@ -157,8 +163,11 @@
             sand-pos [500 0]]
         (reduce
          (fn [board _]
-           (set-piece board (fall board sand-pos) "o"))
-         board (range 22))))))
+           (let [new-sand-pos (fall board sand-pos)]
+             (if (fell-into-void? board new-sand-pos)
+               (reduced board)
+               (set-piece board (fall board sand-pos) "o"))))
+         board (range 25))))))
 
   ;; ..........
   ;; ..........
