@@ -84,12 +84,40 @@
    (map (partial str/join "")
         (partition (:x-len board) (:pieces board)))))
 
-(defn set-board
+(defn set-piece
   [board point piece]
   (let [x-pos (- (first point) (:x-offset board))
         y-pos (- (second point) (:y-offset board))]
-    [x-pos y-pos]
     (assoc-in board [:pieces (+ x-pos (* (:x-len board) y-pos))] piece)))
+
+(defn get-piece
+  [board point]
+  (let [x-pos (- (first point) (:x-offset board))
+        y-pos (- (second point) (:y-offset board))]
+    (get-in board [:pieces (+ x-pos (* (:x-len board) y-pos))])))
+
+(def empty-piece ".")
+(def rock-piece "#")
+(def sand-piece "o")
+
+(defn point-down [[x y]] [x (inc y)])
+(defn point-down-left [[x y]] [(dec x) (inc y)])
+(defn point-down-right [[x y]] [(inc x) (inc y)])
+
+(defn blocked-down?
+  "Would sand be blocked from falling down further?"
+  [board p]
+  (not= (get-piece board (point-down p)) empty-piece))
+
+(defn blocked-down-left?
+  "Would sand be blocked from falling down and left?"
+  [board p]
+  (not= (get-piece board (point-down-left p)) empty-piece))
+
+(defn blocked-down-right?
+  "Would sand be blocked from falling down and right?"
+  [board p]
+  (not= (get-piece board (point-down-right p)) empty-piece))
 
 (defn load-board [filename]
   (let [input (set (mapcat draw-line (parse-file filename)))]
@@ -99,17 +127,49 @@
           y-len (inc (- y2 0))]
       (reduce
        (fn [board point]
-         (set-board board point "#"))
+         (set-piece board point "#"))
        {:pieces (into [] (repeat (* x-len y-len) "."))
         :x-offset x1 :y-offset 0
         :x-len x-len :y-len y-len}
        input))))
 
+(defn fall
+  "Fall down as far as we can go."
+  [board p]
+  ;; Move down if possible
+  (if-not (blocked-down? board p)
+    (fall board (point-down p))
+    ;; Move left if possible
+    (if-not (blocked-down-left? board p)
+      (fall board (point-down-left p))
+      ;; Move right if possible
+      (if-not (blocked-down-right? board p)
+        (fall board (point-down-right p))
+        p))))
+
 (comment
 
   (do
     (println "---")
-    (println (board->str (load-board "day14-sample.txt"))))
+    (println
+     (board->str
+      (let [board (load-board "day14-sample.txt")
+            sand-pos [500 0]]
+        (reduce
+         (fn [board _]
+           (set-piece board (fall board sand-pos) "o"))
+         board (range 22))))))
+
+  ;; ..........
+  ;; ..........
+  ;; ......o...
+  ;; .....ooo..
+  ;; ....#ooo##
+  ;; ....#ooo#.
+  ;; ..###ooo#.
+  ;; ....oooo#.
+  ;; ...ooooo#.
+  ;; #########.
 
   :end)
 
