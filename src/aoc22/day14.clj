@@ -77,9 +77,41 @@
 
 ;;; Helpers
 
+(defn board->str
+  [board]
+  (str/join
+   "\n"
+   (map (partial str/join "")
+        (partition (:x-len board) (:pieces board)))))
+
+(defn set-board
+  [board point piece]
+  (let [x-pos (- (first point) (:x-offset board))
+        y-pos (- (second point) (:y-offset board))]
+    [x-pos y-pos]
+    (assoc-in board [:pieces (+ x-pos (* (:x-len board) y-pos))] piece)))
+
+(defn load-board [filename]
+  (let [input (set (mapcat draw-line (parse-file filename)))]
+    (let [[x1 x2] [(apply min (map first input)) (apply max (map first input))]
+          [y1 y2] [(apply min (map second input)) (apply max (map second input))]
+          x-len (inc (- x2 x1))
+          y-len (inc (- y2 0))]
+      (reduce
+       (fn [board point]
+         (set-board board point "#"))
+       {:pieces (into [] (repeat (* x-len y-len) "."))
+        :x-offset x1 :y-offset 0
+        :x-len x-len :y-len y-len}
+       input))))
+
 (comment
 
-   :end)
+  (do
+    (println "---")
+    (println (board->str (load-board "day14-sample.txt"))))
+
+  :end)
 
 ;;; Answers!
 
