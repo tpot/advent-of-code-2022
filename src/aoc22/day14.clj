@@ -77,135 +77,89 @@
 
 ;;; Helpers
 
-(defn board->str
-  [board]
-  (str/join
-   "\n"
-   (map (partial str/join "")
-        (partition (:x-len board) (:pieces board)))))
+;; Pieces on the board
 
-(defn set-piece
-  [board point piece]
-  (let [x-pos (- (first point) (:x-offset board))
-        y-pos (- (second point) (:y-offset board))]
-    (assoc-in board [:pieces (+ x-pos (* (:x-len board) y-pos))] piece)))
+(def piece-keys [:empty-piece :rock-piece :sand-piece])
+(def piece-vals ["."          "#"         "o"])
 
-(defn get-piece
-  [board point]
-  (let [x-pos (- (first point) (:x-offset board))
-        y-pos (- (second point) (:y-offset board))]
-    (get-in board [:pieces (+ x-pos (* (:x-len board) y-pos))])))
+(def piece-map (merge (zipmap piece-keys piece-vals) (zipmap piece-vals piece-keys)))
 
-(def empty-piece ".")
-(def rock-piece "#")
-(def sand-piece "o")
-
-(defn point-down [[x y]] [x (inc y)])
-(defn point-down-left [[x y]] [(dec x) (inc y)])
+(defn point-down       [[x y]] [x       (inc y)])
+(defn point-down-left  [[x y]] [(dec x) (inc y)])
 (defn point-down-right [[x y]] [(inc x) (inc y)])
 
-(defn blocked-down?
-  "Would sand be blocked from falling down further?"
-  [board p]
-  (not= (get-piece board (point-down p)) empty-piece))
+(defn blocked-down?       [ps p] (get ps (point-down       p)))
+(defn blocked-down-left?  [ps p] (get ps (point-down-left  p)))
+(defn blocked-down-right? [ps p] (get ps (point-down-right p)))
 
-(defn blocked-down-left?
-  "Would sand be blocked from falling down and left?"
-  [board p]
-  (not= (get-piece board (point-down-left p)) empty-piece))
+(defn bounding-box [ps]
+  (let [[x1 x2] [(apply min (map first ps)) (apply max (map first ps))]
+        [y1 y2] [(apply min (map second ps)) (apply max (map second ps))]]
+    [[x1 y1] [x2 y2]]))
 
-(defn blocked-down-right?
-  "Would sand be blocked from falling down and right?"
-  [board p]
-  (not= (get-piece board (point-down-right p)) empty-piece))
+(defn plot->str [xs]
+  (str/join "\n" (map (partial str/join "") xs)))
 
-(defn fell-into-void?
-  "Is a position off the board?"
-  [board [x y]]
-  (> y (second (:y-range board))))
-
-(defn load-board [filename]
-  (let [input (set (mapcat draw-line (parse-file filename)))]
-    (let [[x1 x2] [(apply min (map first input)) (apply max (map first input))]
-          [y1 y2] [(apply min (map second input)) (apply max (map second input))]
-          x-len (inc (- x2 x1))
-          y-len (inc (- y2 0))]
-      (reduce
-       (fn [board point]
-         (set-piece board point "#"))
-       {:pieces (into [] (repeat (* x-len y-len) "."))
-        :x-offset x1 :y-offset 0
-        :x-range [x1 x2] :y-range [y1 y2]
-        :x-len x-len :y-len y-len}
-       input))))
+(defn plot
+  [pcoll]
+  (let [ps (apply set/union (vals pcoll))
+        [[min-x min-y] [max-x max-y]] (bounding-box ps)
+        [range-x range-y] [(- max-x min-x) (- max-y min-y)]
+        [size-x size-y] [(inc range-x) (inc range-y)]
+        empty-board (into [] (repeat (* size-x size-y) (get piece-map :empty-piece)))
+        xf1 (fn [[x y]] (+ x (* size-x y)))
+        xf2 (fn [[x y]] [(- x min-x) (- y min-y)])
+        xf (comp xf1 xf2)]
+    (partition
+     size-x
+     (reduce
+      (fn [board [piece-name p]] (assoc board (xf p) (get piece-map piece-name)))
+      empty-board
+      (mapcat (fn [[k v]] (map vector (repeat k) v)) pcoll)))))
 
 (defn fall
-  "Fall down as far as we can go."
-  [board p]
-  ;; Move down if possible
-  (if-not (blocked-down? board p)
-    (fall board (point-down p))
-    ;; Move left if possible
-    (if-not (blocked-down-left? board p)
-      (fall board (point-down-left p))
-      ;; Move right if possible
-      (if-not (blocked-down-right? board p)
-        (fall board (point-down-right p))
-        p))))
+  "Return furthest point sand can fall or nil for falling into the void."
+  [ps p]
+  (let [max-y (apply max (map second ps))]
+    (if (<= (second p) max-y)
+      ;; Move down if possible
+      (if-not (blocked-down? ps p)
+        (fall ps (point-down p))
+        ;; Move left if possible
+        (if-not (blocked-down-left? ps p)
+          (fall ps (point-down-left p))
+          ;; Move right if possible
+          (if-not (blocked-down-right? ps p)
+            (fall ps (point-down-right p))
+            p)))
+      ;; Fell off!
+      nil)))
 
-(defn count-sand [board]
-  (count (filter #(= % "o") (:pieces board))))
+(def initial-sand-pos [500 0])
 
-(defn drop-sand
-  "Drop sand onto board as position pos."
-  [initial-board sand-pos]
-  (loop [board initial-board]
-    (let [new-sand-pos (fall board sand-pos)]
-      (if (fell-into-void? board new-sand-pos)
-        board
-        (recur (set-piece board new-sand-pos "o"))))))
+(defn drop-sand [rock-points]
+  (loop [sand-points #{}]
+    (let [sand-pos (fall (set/union rock-points sand-points) initial-sand-pos)]
+      (if-not sand-pos sand-points (recur (conj sand-points sand-pos))))))
 
 (comment
 
-  (def result-foo
-    (let [board (load-board "day14.txt")
-          sand-pos [500 0]]
-      (reduce
-       (fn [board _]
-         (let [new-sand-pos (fall board sand-pos)]
-           (if (fell-into-void? board new-sand-pos)
-             (reduced board)
-             (set-piece board (fall board sand-pos) "o"))))
-       board (range 50000))))
+  (let [rock-points (set (mapcat draw-line (parse-file "day14-sample.txt")))
+        sand-points (drop-sand rock-points)
+        result {:rock-piece rock-points :sand-piece sand-points}]
+    (println (-> result plot plot->str))
+    (count sand-points)) ;; => 24
 
-
-  ;; 13502 too high
-
-  (def result-bar
-    (let [initial-board (load-board "day14.txt")
-          sand-pos [500 0]]
-      (loop [board initial-board]
-        (let [before-sand (count-sand board)
-              new-board (drop-sand board sand-pos)
-              after-sand (count-sand new-board)]
-          (if (= before-sand after-sand)
-            {:final-board new-board :sand-count after-sand}
-            (recur new-board))))))
-
-  (:sand-count result)
-  (println (board->str (:final-board result)))
-  ;; ..........
-  ;; ..........
   ;; ......o...
   ;; .....ooo..
   ;; ....#ooo##
-  ;; ....#ooo#.
+  ;; ...o#ooo#.
   ;; ..###ooo#.
   ;; ....oooo#.
-  ;; ...ooooo#.
+  ;; .o.ooooo#.
   ;; #########.
 
-  :end)
+:end)
 
 ;;; Answers!
 
