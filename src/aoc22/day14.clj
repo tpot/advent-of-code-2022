@@ -142,31 +142,16 @@
     (let [sand-pos (fall (set/union rock-points sand-points) initial-sand-pos)]
       (if-not sand-pos sand-points (recur (conj sand-points sand-pos))))))
 
-(comment
-
-  (let [rock-points (set (mapcat draw-line (parse-file "day14-sample.txt")))
-        sand-points (drop-sand rock-points)
-        result {:rock-piece rock-points :sand-piece sand-points}]
-    (println (-> result plot plot->str))
-    (count sand-points)) ;; => 24
-
-  ;; ......o...
-  ;; .....ooo..
-  ;; ....#ooo##
-  ;; ...o#ooo#.
-  ;; ..###ooo#.
-  ;; ....oooo#.
-  ;; .o.ooooo#.
-  ;; #########.
-
-:end)
-
 ;;; Answers!
 
 (defn part-1
   "Run with bb -x aoc22.day14/part-1"
   [_]
-  (prn nil))
+  (prn
+   (let [rock-points (set (mapcat draw-line (parse-file "day14.txt")))
+         sand-points (drop-sand rock-points)
+         result {:rock-piece rock-points :sand-piece sand-points}]
+     (count sand-points)))) ;; => 885
 
 (defn part-2
   "Run with bb -x aoc22.day14/part-2"
