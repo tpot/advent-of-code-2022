@@ -153,22 +153,47 @@
         (fall board (point-down-right p))
         p))))
 
+(defn count-sand [board]
+  (count (filter #(= % "o") (:pieces board))))
+
+(defn drop-sand
+  "Drop sand onto board as position pos."
+  [initial-board sand-pos]
+  (loop [board initial-board]
+    (let [new-sand-pos (fall board sand-pos)]
+      (if (fell-into-void? board new-sand-pos)
+        board
+        (recur (set-piece board new-sand-pos "o"))))))
+
 (comment
 
-  (do
-    (println "---")
-    (println
-     (board->str
-      (let [board (load-board "day14-sample.txt")
-            sand-pos [500 0]]
-        (reduce
-         (fn [board _]
-           (let [new-sand-pos (fall board sand-pos)]
-             (if (fell-into-void? board new-sand-pos)
-               (reduced board)
-               (set-piece board (fall board sand-pos) "o"))))
-         board (range 25))))))
+  (def result-foo
+    (let [board (load-board "day14.txt")
+          sand-pos [500 0]]
+      (reduce
+       (fn [board _]
+         (let [new-sand-pos (fall board sand-pos)]
+           (if (fell-into-void? board new-sand-pos)
+             (reduced board)
+             (set-piece board (fall board sand-pos) "o"))))
+       board (range 50000))))
 
+
+  ;; 13502 too high
+
+  (def result-bar
+    (let [initial-board (load-board "day14.txt")
+          sand-pos [500 0]]
+      (loop [board initial-board]
+        (let [before-sand (count-sand board)
+              new-board (drop-sand board sand-pos)
+              after-sand (count-sand new-board)]
+          (if (= before-sand after-sand)
+            {:final-board new-board :sand-count after-sand}
+            (recur new-board))))))
+
+  (:sand-count result)
+  (println (board->str (:final-board result)))
   ;; ..........
   ;; ..........
   ;; ......o...
