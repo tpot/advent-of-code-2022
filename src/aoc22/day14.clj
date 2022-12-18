@@ -117,30 +117,53 @@
       empty-board
       (mapcat (fn [[k v]] (map vector (repeat k) v)) pcoll)))))
 
-(defn fall
+(defn fall-with-void
   "Return furthest point sand can fall or nil for falling into the void."
   [ps p]
   (let [max-y (apply max (map second ps))]
     (if (<= (second p) max-y)
       ;; Move down if possible
       (if-not (blocked-down? ps p)
-        (fall ps (point-down p))
+        (fall-with-void ps (point-down p))
         ;; Move left if possible
         (if-not (blocked-down-left? ps p)
-          (fall ps (point-down-left p))
+          (fall-with-void ps (point-down-left p))
           ;; Move right if possible
           (if-not (blocked-down-right? ps p)
-            (fall ps (point-down-right p))
+            (fall-with-void ps (point-down-right p))
             p)))
       ;; Fell off!
       nil)))
 
+(defn fall-with-floor
+  "Return furthest point sand can fall or nil for falling into the void."
+  [floor-y ps p]
+  (if (<= (second p) floor-y)
+    ;; Move down if possible
+    (if-not (blocked-down? ps p)
+      (fall-with-floor floor-y ps (point-down p))
+      ;; Move left if possible
+      (if-not (blocked-down-left? ps p)
+        (fall-with-floor floor-y  ps (point-down-left p))
+        ;; Move right if possible
+        (if-not (blocked-down-right? ps p)
+          (fall-with-floor floor-y ps (point-down-right p))
+          p)))
+    ;; Hit floor
+    p))
+
 (def initial-sand-pos [500 0])
 
-(defn drop-sand [rock-points]
+(defn drop-sand-with-void [rock-points]
   (loop [sand-points #{}]
-    (let [sand-pos (fall (set/union rock-points sand-points) initial-sand-pos)]
+    (let [sand-pos (fall-with-void (set/union rock-points sand-points) initial-sand-pos)]
       (if-not sand-pos sand-points (recur (conj sand-points sand-pos))))))
+
+(defn drop-sand-with-floor [rock-points]
+  (let [floor-y (apply max (map second rock-points))]
+    (loop [sand-points #{}]
+      (let [sand-pos (fall-with-floor floor-y (set/union rock-points sand-points) initial-sand-pos)]
+        (if (= sand-pos [500 0]) sand-points (recur (conj sand-points sand-pos)))))))
 
 ;;; Answers!
 
@@ -149,7 +172,7 @@
     (t/is
      (= 24
         (let [rock-points (set (mapcat draw-line (parse-file "day14-sample.txt")))
-              sand-points (drop-sand rock-points)
+              sand-points (drop-sand-with-void rock-points)
               result {:rock-piece rock-points :sand-piece sand-points}]
           (count sand-points))))))
 
@@ -158,13 +181,26 @@
   [_]
   (prn
    (let [rock-points (set (mapcat draw-line (parse-file "day14.txt")))
-         sand-points (drop-sand rock-points)
+         sand-points (drop-sand-with-void rock-points)
          result {:rock-piece rock-points :sand-piece sand-points}]
      (count sand-points)))) ;; => 885
+
+(t/deftest sample-data-part-2
+  (t/testing "Check result for sample data"
+    (t/is
+     (= 93
+        (let [rock-points (set (mapcat draw-line (parse-file "day14-sample.txt")))
+              sand-points (drop-sand-with-floor rock-points)
+              result {:rock-piece rock-points :sand-piece sand-points}]
+          (inc (count sand-points)))))))
 
 (defn part-2
   "Run with bb -x aoc22.day14/part-2"
   [_]
-  (prn nil))
+  (prn
+   (let [rock-points (set (mapcat draw-line (parse-file "day14.txt")))
+         sand-points (drop-sand-with-floor rock-points)
+         result {:rock-piece rock-points :sand-piece sand-points}]
+     (inc (count sand-points)))))
 
 (t/run-tests)
