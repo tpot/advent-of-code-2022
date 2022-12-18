@@ -144,6 +144,15 @@
 
 ;;; Answers!
 
+(t/deftest sample-data-part-1
+  (t/testing "Check result for sample data"
+    (t/is
+     (= 24
+        (let [rock-points (set (mapcat draw-line (parse-file "day14-sample.txt")))
+              sand-points (drop-sand rock-points)
+              result {:rock-piece rock-points :sand-piece sand-points}]
+          (count sand-points))))))
+
 (defn part-1
   "Run with bb -x aoc22.day14/part-1"
   [_]
