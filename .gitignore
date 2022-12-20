@@ -1,5 +1,6 @@
 *~
 .cache
+.clerk
 .cpcache
 .nrepl-port
 package-lock.json
